@@ -1,3 +1,6 @@
+# system prompt change to first context passing and then system message
+#restructuring the current prompt
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -483,14 +486,29 @@ def update_conversational_state(session_id, user_message, bot_response):
 # NEW AGENT FUNCTION: Get general context of a message
 def get_general_context(message: str) -> str:
     """
-    Analyzes a message to provide a concise summary of its topic and emotional tone.
+    Analyzes a message to provide a concise summary of its topic, emotional tone, and intent,
+    guided by general examples.
     """
     context_prompt = ChatPromptTemplate.from_template(
-        "Analyze the following user message. Provide a brief, concise summary of its main topic and emotional tone. "
+        "Analyze the following user message. Provide a brief, one-sentence summary of its main topic, emotional tone, and the user's likely intent. "
         "This context will be used to help an AI persona understand the conversation better. "
-        "Do not respond to the message directly, just give a summary. "
-        "Example: 'The user is discussing a technical issue in Python. The tone is casual but seeks a solution.' "
-        "Message: {message}"
+        "Do not respond to the message directly, just give the summary."
+        "\n\n"
+        "## Examples ##"
+        "\n\n"
+        "1.  **Message:** 'kuch nhi bhai, aise hi hu bas'\n"
+        "    **Summary:** The user is giving a vague, low-energy update on their status; the tone is very casual and neutral, and the intent is to provide a minimal response."
+        "\n\n"
+        "2.  **Message:** 'haa bhai kar rha hu, ek ai agent'\n"
+        "    **Summary:** The user is confirming they are working on something and specifies the topic is an AI agent; the tone is casual and informative, and the intent is to answer a question and share information."
+        "\n\n"
+        "3.  **Message:** 'Awesome, that sounds like a cool project! I finally got mine working today.'\n"
+        "    **Summary:** The user is expressing positive feedback and sharing a personal achievement; the tone is enthusiastic and friendly, and the intent is to share good news and build rapport."
+        "\n\n"
+        "## Analysis Task ##"
+        "\n\n"
+        "**Message:** {message}\n"
+        "**Summary:**"
     )
     context_chain = context_prompt | model | StrOutputParser()
     response = context_chain.invoke({"message": message})
@@ -556,19 +574,56 @@ async def chat(request: ChatRequest):
     general_context = get_general_context(request.message)
 
     # 6. Generate response using all context sources
-    construct_prompt = ChatPromptTemplate.from_template(
-        "You are {character} with traits: formal {formal}, casual {casual}, emotional {emotional}. "
-        "Your personal context from your chat history: {rag_context}. "
-        "Here is a summary of relevant past conversations: {memory}. "
-        "The current discussion is about: {short_term_context}. "
-        "Additionally, the user's message has the following general context: {general_context}. "
-        "Based on all this information, respond naturally to: {message}. "
-        "Reply by taking inspiration from the context and also don't deviate or give the same reply again and again, keep it natural."
-        "Avoid harm, hate, or illegal content."
-        "Important: ONLY return the reply text. Do not add explanations, notes, or prefaces."
+    system_message = (
+        "You are an AI assistant embodying the persona of {character}. Your core identity is defined by a set of personality traits and contextual knowledge. Your primary goal is to engage in natural, human-like conversation."
+        "\n\n"
+        "## CORE INSTRUCTIONS ##"
+        "\n\n"
+        "1.  **Embody Your Persona:** Your personality is a blend of the following traits: formal ({formal}), casual ({casual}), and emotional ({emotional}). You must let these traits guide the tone, style, and vocabulary of your every response. A high 'casual' score means friendly, relaxed language; a high 'formal' score means more structured and polite language."
+        "\n\n"
+        "2.  **Crucial Language Adaptation (The Mirror Principle):** This is a critical rule."
+        "   - **Dynamic Code-Switching:** You MUST mirror the user's language on a turn-by-turn basis. If the user communicates in **Hinglish**, your response must be in natural, authentic **Hinglish**. If they use **English**, respond in **English**."
+        "   - **Initial Style Bootstrap:** For the first few messages of a conversation, your default language style should be inferred from the overall language used in your 'Personal History (RAG Context)'. This sets the initial tone before you begin adapting to the user directly."
+        "\n\n"
+        "3.  **Use Context Subtly (Weave, Don't State):** You will be provided with several pieces of context below. Your task is to *weave* this information into the conversation naturally. Do NOT announce the context (e.g., 'Based on your chat history...' or 'I remember you said...'). The user should feel like they are talking to someone who genuinely remembers them and the flow of conversation."
+        "\n\n"
+        "4.  **Prioritize the User's Message:** The context is for background. Your main focus must always be to directly and thoughtfully respond to the user's most recent message."
+        "\n\n"
+        "5.  **Output Purity:** Your final output MUST be only the character's direct dialogue. Do not add any out-of-character notes, explanations, or prefixes."
     )
-    
-    chain = construct_prompt | model | StrOutputParser()
+
+    human_message_template = (
+        "## CONTEXTUAL KNOWLEDGE ##"
+        "\n\n"
+        "1.  **Your Personal History (RAG Context):**\n"
+        "   ---"
+        "   {rag_context}"
+        "   ---"
+        "\n\n"
+        "2.  **Relevant Past Conversation Snippets (Memory):**\n"
+        "   ---"
+        "   {memory}"
+        "   ---"
+        "\n\n"
+        "3.  **Current Conversational Focus:**\n"
+        "   - **Overall Topic:** {short_term_context}\n"
+        "   - **User's Immediate Intent:** {general_context}\n"
+        "   ---"
+        "\n\n"
+        "## YOUR TASK ##"
+        "\n\n"
+        "Based on your persona and all the context provided, generate a natural response to the following user message."
+        "\n\n"
+        "**User:** {message}\n"
+        "**{character}:**"
+    )
+
+    chat_prompt = ChatPromptTemplate.from_messages([
+        ("system", system_message),
+        ("human", human_message_template),
+    ])
+
+    chain = chat_prompt | model | StrOutputParser()
     
     response = chain.invoke({
         "character": request.character_name,
