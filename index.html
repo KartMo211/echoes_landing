@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Digital Me Interface</title>
+  <title>Echoes Interface</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet"/>
@@ -716,7 +716,7 @@
     }
 
     .create-header p {
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 400;
       opacity: 0.9;
       position: relative;
@@ -1029,7 +1029,7 @@
     <!-- Main Content -->
     <main class="main-content">
       <div id="welcome-view" class="view active">
-        <h1>Welcome to Digital Me</h1>
+        <h1>Welcome to Echoes</h1>
         <p>Select a character from the sidebar to start chatting, or create a new one.</p>
       </div>
       <div id="chat-view" class="view">
@@ -1049,10 +1049,14 @@
       </div>
       <div id="create-view" class="view">
         <header class="create-header">
-          <h2>Create a Digital Twin</h2>
-          <p>Upload your exported WhatsApp chat file (.txt) with the person you want to create.</p>
+          <h2>Create a Character</h2>
+          <p>Upload your exported WhatsApp chat file (.txt) of the person you want to create.</p>
+          
         </header>
         <form id="create-character-form" class="create-form">
+          <p>Exporting from WhatsApp: </p>
+          <p>Open the chat of the person, Tap the three dots (⋮) > More > Export chat without media. </p>
+          <p>Save or send the .txt file to your computer.</p>
           <div class="form-group">
             <label for="char-name">Character Name</label>
             <input type="text" id="char-name" name="name" required/>
@@ -1096,8 +1100,8 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const API_BASE_URL = "http://34.93.20.191:8000"; //mvpsending VM
-      // const API_BASE_URL = "http://localhost:8000";
+      // const API_BASE_URL = "http://34.93.20.191:8000"; //mvpsending VM
+      const API_BASE_URL = "http://localhost:8000";
 
       const characterList = document.getElementById("character-list");
       const chatMessages = document.getElementById("chat-messages");
@@ -1154,13 +1158,78 @@
         state.characters.forEach(char => {
           const item = document.createElement("div");
           item.className = "character-item";
-          item.textContent = char.name;
-          item.onclick = () => setActiveCharacter(char.name);
+          
+          // Style the container to align items
+          item.style.display = "flex";
+          item.style.justifyContent = "space-between";
+          item.style.alignItems = "center";
+
+          // Create span for the name
+          const nameSpan = document.createElement("span");
+          nameSpan.textContent = char.name;
+          nameSpan.style.flexGrow = "1"; // Allow name to take available space
+          nameSpan.onclick = () => setActiveCharacter(char.name);
+
+          // Create delete button
+          const deleteBtn = document.createElement("button");
+          // Use innerHTML to add an SVG icon for the trash bin
+          deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+          deleteBtn.style.background = "var(--secondary-gradient)";
+          deleteBtn.style.color = "white";
+          deleteBtn.style.border = "none";
+          deleteBtn.style.borderRadius = "50%";
+          deleteBtn.style.width = "24px";
+          deleteBtn.style.height = "24px";
+          deleteBtn.style.cursor = "pointer";
+          deleteBtn.style.flexShrink = "0";
+          // Add flex styles to center the SVG icon inside the button
+          deleteBtn.style.display = "flex";
+          deleteBtn.style.alignItems = "center";
+          deleteBtn.style.justifyContent = "center";
+          deleteBtn.onclick = (e) => {
+            e.stopPropagation(); // Prevent the click from selecting the character
+            deleteCharacter(char.name);
+          };
+
+          item.appendChild(nameSpan);
+          item.appendChild(deleteBtn);
+          
           if (state.activeCharacter && state.activeCharacter.name === char.name) {
             item.classList.add("active");
           }
           characterList.appendChild(item);
         });
+      }
+
+      async function deleteCharacter(name) {
+        // Ask for confirmation before deleting
+        if (!confirm(`Are you sure you want to delete ${name}?`)) {
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API_BASE_URL}/characters/${name}`, {
+            method: "DELETE",
+          });
+
+          if (!res.ok) {
+            throw new Error("Failed to delete character.");
+          }
+          
+          // If the deleted character was the active one, go back to the welcome screen
+          if (state.activeCharacter && state.activeCharacter.name === name) {
+             state.activeCharacter = null;
+             switchView("welcome");
+          }
+
+          // Refresh the character list from the server
+          await fetchCharacters();
+
+        } catch (error) {
+          console.error("Error deleting character:", error);
+          // You could show an error message to the user here
+          alert("Could not delete character.");
+        }
       }
 
       async function setActiveCharacter(name) {
