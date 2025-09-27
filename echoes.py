@@ -42,7 +42,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Initialize models and configurations globally
 model = ChatGoogleGenerativeAI(
-    model='gemini-1.5-flash',
+    model='gemini-2.0-flash',
     google_api_key=GOOGLE_API_KEY,
     temperature=0.7
 )
@@ -754,6 +754,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    import os
-    PORT = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
