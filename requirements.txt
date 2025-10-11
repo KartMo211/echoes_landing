@@ -7,4 +7,5 @@ langchain-google-genai
 langchain-core
 faiss-cpu
 python-dotenv
+python-multipart
 uvicorn
