@@ -1,0 +1,15 @@
+/* Define the CSS variable used by this component.
+  In a real app, you might place this in a global stylesheet like index.css
+*/
+:root {
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Glassmorphism Navbar Style */
+.glass-nav {
+  background-color: rgba(18, 18, 22, 0.3);
+  color: #fff;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px); /* For Safari compatibility */
+  border-bottom: 1px solid var(--border-color);
+}

@@ -1,0 +1,91 @@
+/* Parallax Hero Section - Full viewport height and positioned for content */
+.parallax-hero-section {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex; /* Using flex to help position content */
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Parallax Background - Same as before, slightly taller for movement */
+.parallax-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 120%; /* Taller than section to allow vertical parallax movement */
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  z-index: -1; /* Behind all text content */
+}
+
+/* src/components/ParallaxHero.css */
+
+/* ... (Your .parallax-hero-section and .parallax-background styles remain the same) ... */
+
+/* Container for the text - CHANGED */
+.parallax-content-overlay {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 1; /* Keep text above the background */
+  
+  /* Use Flexbox to align content */
+  display: flex;
+  flex-direction: column; /* Stack items vertically */
+  justify-content: flex-start; /* Align to the top */
+  align-items: flex-start; /* Align to the left */
+  
+  /* Add padding to push text away from the edges */
+  padding: 5vw; 
+  box-sizing: border-box;
+}
+
+/* Base styles for the large text - CHANGED */
+.large-text {
+  /* REMOVED position: absolute */
+  font-family: 'Lato', sans-serif;
+  font-size: 10vw; /* Adjust size as needed */
+  font-weight: 900;
+  line-height: 1; /* Adjust for spacing between lines */
+  margin: 0;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+/* Specific styling for "We" - CHANGED */
+.we-text {
+  /* REMOVED all positioning (top, left, transform) */
+  color: #000;
+  mix-blend-mode: difference;
+}
+
+/* Specific styling for "Design" - CHANGED */
+.design-text {
+  /* REMOVED all positioning (top, left, transform) */
+  background-image: url('../../assets/ParallaxHero.jpg'); /* Make sure path is correct */
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Specific styling for "Digital" - CHANGED */
+.digital-text {
+  /* REMOVED all positioning (top, left, transform) */
+  background-image: url('../../assets/ParallaxHero.jpg'); /* Make sure path is correct */
+  background-size: cover;
+  background-position: center;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .large-text {
+    font-size: 15vw; /* Make text larger on smaller screens */
+    line-height: 0.9;
+  }
+}

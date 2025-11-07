@@ -1,8 +1,11 @@
 .circular-gallery {
     width: 100%;
-    height: 100%;
     overflow: hidden;
     cursor: grab;
+    position:fixed;
+    top:50%;
+    transform: translateY(-50%);
+    z-index:2;
 }
 
 .circular-gallery:active {

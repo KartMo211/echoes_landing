@@ -1,0 +1,141 @@
+/*
+  Font Imports (Reminder: Linking in public/index.html is preferred for Vite)
+  @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300&family=Playfair+Display:wght@700&display=swap');
+*/
+
+/* Container with the professional dark background */
+.animation-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* definite height so children with height:100% can size correctly */
+  background-color: #111214; 
+  z-index: 0; /* create stacking context but keep it above the page background */
+  width:100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Base styles for absolute positioning */
+.welcome-text,
+.echoes-text {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+/* Styles for "Welcome to" */
+.welcome-text {
+  font-family: 'Lato', sans-serif;
+  font-size: 2.25rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.7);
+  z-index: 2;
+  animation: spread-and-settle 3.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Styles for "Echoes" */
+.echoes-text {
+  font-family: 'Lato', sans-serif;
+  font-size: 7rem;
+  font-weight: 700;
+  color: #f0f0f0;
+  letter-spacing: 25px;
+  z-index: 1;
+  opacity: 0; /* Start hidden */
+  animation: reveal-and-drop 3.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* NEW: Styles for Scroll Down Indicator */
+.scroll-indicator {
+  position: absolute;
+  bottom: 80px; /* Position it from the bottom */
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.6); /* Slightly muted color */
+  font-family: 'Lato', sans-serif;
+  font-size: 1.1rem;
+  display: flex; /* To align text and arrow horizontally */
+  align-items: center;
+  gap: 8px; /* Space between "Scroll down" and arrow */
+  opacity: 0; /* Initially hidden */
+  /* Animation to fade in and move up after the main animation */
+  animation: fade-in-up 1s ease-out 3.5s forwards; /* Starts after 3.5s */
+}
+
+.scroll-indicator .arrow {
+  font-size: 1.5rem; /* Make arrow a bit bigger */
+  /* Blinking animation */
+  animation: blink-arrow 1.5s infinite ease-in-out;
+}
+
+
+/* Keyframe 1: For the "Welcome to" text */
+@keyframes spread-and-settle {
+  0% {
+    letter-spacing: 1px;
+    opacity: 0;
+  }
+  40% {
+    letter-spacing: 25px;
+    opacity: 1;
+  }
+  100% {
+    letter-spacing: 15px;
+    opacity: 1;
+  }
+}
+
+/* Keyframe 2: For the "Echoes" text with a blur effect */
+@keyframes reveal-and-drop {
+  0%, 45% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0;
+    filter: blur(10px);
+  }
+  75% {
+    transform: translate(-50%, calc(-50% + 115px)) scale(1.05);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: translate(-50%, calc(-50% + 110px)) scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* NEW Keyframe 3: For the scroll indicator to fade in and move up */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* NEW Keyframe 4: For the blinking arrow */
+@keyframes blink-arrow {
+  0%, 100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.2;
+    transform: translateY(5px); /* Gentle bounce effect */
+  }
+}
+
+.circular-gallery {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    cursor: grab;
+    position:relative;
+    z-index:2;
+}

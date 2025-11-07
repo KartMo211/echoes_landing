@@ -1,0 +1,173 @@
+/* --- Core Theme Variables --- */
+:root {
+  --bg: #0b0d11;
+  --text: #e8eef9;
+  --muted: #b7c0d8;
+  --accent: #7c5cff;
+  --accent-2: #00e0d1;
+  --card: #121621;
+  --glass: rgba(255, 255, 255, .06);
+  --border: rgba(255, 255, 255, .12);
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  --radius: 20px;
+}
+
+/* Light theme vars */
+.light {
+  --bg: #f6f7fb;
+  --text: #12141a;
+  --muted: #4a5568;
+  --accent: #6a5cff;
+  --accent-2: #00bfb2;
+  --card: #ffffff;
+  --glass: rgba(0, 0, 0, .04);
+  --border: rgba(0, 0, 0, .08);
+  --shadow: 0 10px 30px rgba(0, 0, 0, .08);
+}
+
+/* --- Base & Button Styles --- */
+* {
+  box-sizing: border-box;
+}
+
+/* Apply styles to body for the demo.
+  In a real app, you might apply this to a wrapper div.
+*/
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji';
+  background: radial-gradient(1200px 800px at 80% -10%, rgba(124, 92, 255, .25), transparent 60%),
+    radial-gradient(1000px 700px at -10% 10%, rgba(0, 224, 209, .2), transparent 55%),
+    var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.login-wrapper {
+  /* Center the login card */
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.btn {
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 10px 25px rgba(124, 92, 255, .35);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* --- Login Page Specific Styles --- */
+.login-card {
+  width: min(420px, 95vw);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+
+.login-card h2 {
+  font-size: clamp(24px, 3.2vw, 32px);
+  margin: 0 0 10px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.login-sub {
+  color: var(--muted);
+  margin: 0 0 24px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form input {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--text);
+  outline: none;
+  font-size: 16px;
+  width: 100%;
+}
+
+.login-form input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(124, 92, 255, .25);
+}
+
+.login-form .btn {
+  width: 100%;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.login-links {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Message box for success/error */
+.message-box {
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  text-align: center;
+}
+.message-box.error {
+  background-color: rgba(255, 100, 100, 0.2);
+  color: rgba(255, 200, 200, 1);
+  border: 1px solid rgba(255, 100, 100, 0.5);
+}
+.message-box.success {
+  background-color: rgba(100, 255, 100, 0.2);
+  color: rgba(200, 255, 200, 1);
+  border: 1px solid rgba(100, 255, 100, 0.5);
+}

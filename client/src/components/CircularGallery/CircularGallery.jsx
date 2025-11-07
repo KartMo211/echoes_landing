@@ -109,7 +109,10 @@ class Media {
     textColor,
     borderRadius = 0,
     font,
-    setBackgroundName
+    setBackgroundName,
+    last,
+    onLastImage,
+    notLastImage
   }) {
     this.extra = 0;
     this.geometry = geometry;
@@ -128,6 +131,10 @@ class Media {
     this.font = font;
     this.setBackgroundName = setBackgroundName;
     this.isAtCenter = false; // Track center state
+    this.last = last;
+    this.onLastImage = onLastImage; // Store the callback
+    this.notLastImage = notLastImage; // Store the revert callback
+    this.hasTriggeredLastImage = false; 
     this.createShader();
     this.createMesh();
     this.createTitle();
@@ -243,36 +250,35 @@ class Media {
     // Update plane sizes uniform for shader
     this.plane.program.uniforms.uPlaneSizes.value = [this.plane.scale.x, this.plane.scale.y];
 
-    if (this.bend === 0) {
-      this.plane.position.y = 0;
-      this.plane.rotation.z = 0;
-    } else {
-      const B_abs = Math.abs(this.bend);
-      const R = (H * H + B_abs * B_abs) / (2 * B_abs);
-      const effectiveX = Math.min(Math.abs(x), H);
-
-      const arc = R - Math.sqrt(R * R - effectiveX * effectiveX);
-      if (this.bend > 0) {
-        this.plane.position.y = -arc;
-        this.plane.rotation.z = -Math.sign(x) * Math.asin(effectiveX / R);
-      } else {
-        this.plane.position.y = arc;
-        this.plane.rotation.z = Math.sign(x) * Math.asin(effectiveX / R);
-      }
-    }
-
     // Check if this image is at the center
     const isCurrentlyAtCenter = Math.abs(x) < this.plane.scale.x * 0.3; // Threshold for center detection
     
-    // Only change background when the center state changes to avoid spamming
     if (isCurrentlyAtCenter && !this.isAtCenter) {
       if (this.setBackgroundName) {
         this.setBackgroundName(this.image);
       }
       this.isAtCenter = true;
+
+    // Check if it's the last image and if the effect hasn't been triggered yet
+      if (this.last && this.onLastImage && !this.hasTriggeredLastImage) {
+        console.log("Triggering onLastImage for the first time.");
+        this.onLastImage(); // <-- TRIGGERS THE EFFECT (NOW ONLY ONCE)
+        this.hasTriggeredLastImage = true; // Set the flag to prevent re-triggers
+      }
+      else if (this.hasTriggeredLastImage) {
+        console.log("Not the last image or already triggered.");
+        this.notLastImage();
+        this.hasTriggeredLastImage = false; // Reset if not the last image
+      }
     } else if (!isCurrentlyAtCenter && this.isAtCenter) {
       this.isAtCenter = false;
+      // Optional: You could reset the flag here if you want the effect
+      // to be triggerable again if the user scrolls away and then back.
+      // if (this.last) {
+      //   this.hasTriggeredLastImage = false;
+      // }
     }
+
 
     this.speed = scroll.current - scroll.last;
     this.program.uniforms.uTime.value += 0.04;
@@ -282,14 +288,7 @@ class Media {
     const viewportOffset = this.viewport.width / 2;
     this.isBefore = this.plane.position.x + planeOffset < -viewportOffset;
     this.isAfter = this.plane.position.x - planeOffset > viewportOffset;
-    if (direction === 'right' && this.isBefore) {
-      this.extra -= this.widthTotal;
-      this.isBefore = this.isAfter = false;
-    }
-    if (direction === 'left' && this.isAfter) {
-      this.extra += this.widthTotal;
-      this.isBefore = this.isAfter = false;
-    }
+    
   }
   onResize({ screen, viewport } = {}) {
     if (screen) this.screen = screen;
@@ -327,7 +326,9 @@ class App {
       font = 'bold 30px Figtree',
       scrollSpeed = 2,
       scrollEase = 0.05,
-      setBackgroundName
+      setBackgroundName,
+      onLastImage,
+      notLastImage
     } = {}
   ) {
     document.documentElement.classList.remove('no-js');
@@ -341,6 +342,8 @@ class App {
     this.createScene();
     this.onResize();
     this.createGeometry();
+    this.onLastImage = onLastImage; // Store the callback
+    this.notLastImage = notLastImage; // Store the revert callback
     this.createMedias(items, bend, textColor, borderRadius, font);
     this.update();
     this.addEventListeners();
@@ -384,9 +387,9 @@ class App {
       { image: `https://picsum.photos/seed/21/800/600?grayscale`, text: 'Coastline' },
       { image: `https://picsum.photos/seed/12/800/600?grayscale`, text: 'Palm Trees' }
     ];
-    const galleryItems = items && items.length ? items : defaultItems;
-    this.mediasImages = galleryItems.concat(galleryItems);
+    this.mediasImages = items && items.length ? items : defaultItems;
     this.medias = this.mediasImages.map((data, index) => {
+
       return new Media({
         geometry: this.planeGeometry,
         gl: this.gl,
@@ -402,7 +405,10 @@ class App {
         textColor,
         borderRadius,
         font,
-        setBackgroundName: this.setBackgroundName
+        last: index === this.mediasImages.length - 1 ? 1 : 0,
+        setBackgroundName: this.setBackgroundName,
+        onLastImage: this.onLastImage, // Pass the callback to each Media
+        notLastImage: this.notLastImage // Pass the revert callback
       });
     });
   }
@@ -412,10 +418,11 @@ class App {
     this.start = e.touches ? e.touches[0].clientX : e.clientX;
   }
   onTouchMove(e) {
-    if (!this.isDown) return;
-    const x = e.touches ? e.touches[0].clientX : e.clientX;
-    const distance = (this.start - x) * (this.scrollSpeed * 0.025);
-    this.scroll.target = this.scroll.position + distance;
+    console.log("Touch move detected");
+    // if (!this.isDown) return;
+    // const x = e.touches ? e.touches[0].clientX : e.clientX;
+    // const distance = (this.start - x) * (this.scrollSpeed * 0.025);
+    // this.scroll.target = this.scroll.position + distance;
   }
   onTouchUp() {
     this.isDown = false;
@@ -501,14 +508,65 @@ export default function CircularGallery({
   font = 'bold 30px Figtree',
   scrollSpeed = 2,
   scrollEase = 0.05,
-  setBackgroundName
+  setBackgroundName,
+  onLastImage,
+  notLastImage
 }) {
   const containerRef = useRef(null);
+  // Use a ref to hold the App instance. This persists across re-renders.
+  const appRef = useRef(null);
+  // Use a ref to hold the latest version of the callback.
+  const onLastImageRef = useRef(onLastImage);
+  const notLastImageRef = useRef(notLastImage);
+
+  // This effect keeps the notLastImage callback ref up-to-date with the latest prop
+  // without triggering other effects.
   useEffect(() => {
-    const app = new App(containerRef.current, { items, bend, textColor, borderRadius, font, scrollSpeed, scrollEase, setBackgroundName });
+    notLastImageRef.current = notLastImage;
+  }, [notLastImage]);
+
+  // This effect keeps the callback ref up-to-date with the latest prop
+  // without triggering other effects.
+  useEffect(() => {
+    onLastImageRef.current = onLastImage;
+  }, [onLastImage]);
+
+  // This effect runs ONLY ONCE to initialize the gallery.
+  useEffect(() => {
+    // Prevent initialization if it's already running.
+    if (!appRef.current) {
+      const app = new App(containerRef.current, {
+        items,
+        bend,
+        textColor,
+        borderRadius,
+        font,
+        scrollSpeed,
+        scrollEase,
+        setBackgroundName,
+        // Pass a stable function that calls the *current* function in the ref.
+        onLastImage: () => {
+          if (onLastImageRef.current) {
+            onLastImageRef.current();
+          }
+        },
+        notLastImage: () => {
+          if (notLastImageRef.current) {
+            notLastImageRef.current();
+          }
+        }
+      });
+      appRef.current = app;
+    }
+
+    // The cleanup function runs only when the component unmounts.
     return () => {
-      app.destroy();
+      if (appRef.current) {
+        appRef.current.destroy();
+        appRef.current = null;
+      }
     };
-  }, [items, bend, textColor, borderRadius, font, scrollSpeed, scrollEase, setBackgroundName]);
+  }, []); // <-- Empty dependency array ensures this runs only once.
+
   return <div className="circular-gallery" ref={containerRef} />;
 }

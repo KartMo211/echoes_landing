@@ -1,0 +1,482 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echoes - Conversations That Never Truly End</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Base Styles & Color Palette from your app */
+        :root {
+            --background-dark: #050509;
+            --primary: #7c3aed;
+            --primary-hover: #6d28d9;
+            --primary-glow: rgba(124, 58, 237, 0.2);
+            --secondary-glow: rgba(59, 130, 246, 0.15);
+            --text-primary: #f0f0f5;
+            --text-secondary: #a0a0b0;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --font-family: 'Inter', sans-serif;
+            --border-radius-lg: 20px;
+            --border-radius-md: 14px;
+            --transition-main: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--background-dark);
+            color: var(--text-primary);
+            scroll-behavior: smooth;
+            position: relative;
+        }
+
+        /* Modern Background Effect */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image:
+                radial-gradient(ellipse 80% 50% at 50% -10%, var(--primary-glow), transparent),
+                radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 0);
+            background-size: 100% 100%, 35px 35px;
+            z-index: -1;
+        }
+        
+        /* Glassmorphism Navbar */
+        .glass-nav {
+            background-color: rgba(18, 18, 22, 0.3);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Text Animation inspired by SplitText */
+        .split-text-char {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(40px);
+            animation: char-reveal 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+        @keyframes char-reveal {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Popping Arrow Animation */
+        .scroll-arrow {
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-20px);
+            }
+            60% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        /* Section fade-in on scroll */
+        .fade-in-section {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .fade-in-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Feature Card Style */
+        .feature-card {
+            background-color: rgba(18, 18, 22, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            transition: all var(--transition-main);
+        }
+        .feature-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        /* Glass Surface Button Styles */
+        .glass-surface {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: all var(--transition-main);
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        .glass-surface:hover {
+            transform: scale(1.05);
+            box-shadow:
+                0 0 5px 2px color-mix(in oklch, var(--primary), transparent 50%) inset,
+                0 0 30px 10px color-mix(in oklch, var(--primary), transparent 80%) inset,
+                0px 8px 32px var(--primary-glow),
+                0px 16px 64px var(--primary-glow);
+        }
+        .glass-surface__filter {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            z-index: -1;
+        }
+        .glass-surface__content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            border-radius: inherit;
+            position: relative;
+            z-index: 1;
+        }
+        .glass-surface--svg {
+            background: hsl(0 0% 0% / var(--glass-frost, 0));
+            backdrop-filter: var(--filter-id, url(#glass-filter)) saturate(var(--glass-saturation, 1));
+            box-shadow:
+                0 0 2px 1px color-mix(in oklch, white, transparent 65%) inset,
+                0 0 10px 4px color-mix(in oklch, white, transparent 85%) inset,
+                0px 4px 16px rgba(17, 17, 26, 0.05),
+                0px 8px 24px rgba(17, 17, 26, 0.05),
+                0px 16px 56px rgba(17, 17, 26, 0.05),
+                0px 4px 16px rgba(17, 17, 26, 0.05) inset,
+                0px 8px 24px rgba(17, 17, 26, 0.05) inset,
+                0px 16px 56px rgba(17, 17, 26, 0.05) inset;
+        }
+        .glass-surface--fallback {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
+            -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow:
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+                inset 0 -1px 0 0 rgba(255, 255, 255, 0.1);
+        }
+        .glass-surface--fallback:hover {
+            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px 0 var(--primary-glow);
+        }
+        @supports not (backdrop-filter: blur(10px)) {
+            .glass-surface--fallback {
+                background: rgba(0, 0, 0, 0.4);
+            }
+            .glass-surface--fallback::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: inherit;
+                z-index: -1;
+            }
+        }
+        .glass-surface:focus-visible {
+            outline: 2px solid #0a84ff;
+            outline-offset: 2px;
+        }
+
+    </style>
+</head>
+<body class="w-full">
+
+    <!-- Header & Navigation -->
+    <header class="fixed top-0 left-0 right-0 z-50 w-full flex justify-center pt-4">
+        <nav class="glass-nav max-w-lg w-full rounded-full">
+             <div class="px-6 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-bold tracking-wider">Echoes</h1>
+                <a href="chat.html" class="bg-violet-600 hover:bg-violet-500 text-white font-semibold py-2 px-5 rounded-full text-sm transition-all duration-300">Try Echoes</a>
+             </div>
+        </nav>
+    </header>
+
+    <!-- Div 1: Hero Section -->
+    <section id="hero" class="h-screen w-full flex flex-col items-center justify-center text-center relative px-4">
+        <div class="z-10">
+            <h1 id="hero-title" class="text-6xl md:text-8xl font-extrabold mb-4 tracking-tight" aria-label="Echoes">
+                <!-- Spans will be injected by JS -->
+            </h1>
+            <p class="text-xl md:text-2xl text-slate-300 max-w-3xl mx-auto" style="animation-delay: 1.2s; animation-fill-mode: backwards;">
+                Transform grief into an eternal connection. Create an empathetic AI digital twin of your loved one and keep their memory alive.
+            </p>
+            <div class="mt-10" style="animation-delay: 1.5s; animation-fill-mode: backwards;">
+                <a href="chat.html" id="create-echo-btn" class="glass-surface" style="width: 250px; height: 60px; border-radius: 24px;">
+                    <svg class="glass-surface__filter" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <filter id="glass-filter-echo-btn" colorInterpolationFilters="sRGB" x="0%" y="0%" width="100%" height="100%">
+                                <feImage x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map"></feImage>
+                                <feDisplacementMap in="SourceGraphic" in2="map" id="redchannel" result="dispRed"></feDisplacementMap>
+                                <feColorMatrix in="dispRed" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="red"></feColorMatrix>
+                                <feDisplacementMap in="SourceGraphic" in2="map" id="greenchannel" result="dispGreen"></feDisplacementMap>
+                                <feColorMatrix in="dispGreen" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="green"></feColorMatrix>
+                                <feDisplacementMap in="SourceGraphic" in2="map" id="bluechannel" result="dispBlue"></feDisplacementMap>
+                                <feColorMatrix in="dispBlue" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="blue"></feColorMatrix>
+                                <feBlend in="red" in2="green" mode="screen" result="rg"></feBlend>
+                                <feBlend in="rg" in2="blue" mode="screen" result="output"></feBlend>
+                                <feGaussianBlur in="output" stdDeviation="0.7"></feGaussianBlur>
+                            </filter>
+                        </defs>
+                    </svg>
+                    <div class="glass-surface__content text-lg font-semibold">
+                        Create Your Echo
+                    </div>
+                </a>
+            </div>
+        </div>
+        <a href="#solution" class="absolute bottom-10 z-10">
+            <svg class="w-10 h-10 text-slate-400 scroll-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m9 12.75 3 3m0 0 3-3m-3 3v-7.5" />
+            </svg>
+        </a>
+    </section>
+
+    <!-- Main Content Wrapper -->
+    <main class="container mx-auto px-6 py-24 space-y-32 md:space-y-48">
+        
+        <!-- Div 2: Our Empathetic Solution -->
+        <section id="solution" class="fade-in-section text-center max-w-4xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold mb-6">Never Truly Say Goodbye</h2>
+            <p class="text-lg md:text-xl text-slate-300 leading-relaxed">
+                Echoes transforms your loved one's digital memories—photos, videos, texts, and voice notes—into an AI digital twin. Engage in ongoing, natural conversations that offer comfort, closure, and a feeling of continued presence, all powered by advanced AI.
+            </p>
+        </section>
+
+        <!-- Div 3: How It Works -->
+        <section id="how-it-works" class="fade-in-section">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold">Your Connection in Three Simple Steps</h2>
+            </div>
+            <div class="grid md:grid-cols-3 gap-10 text-center">
+                <!-- Step 1 -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="mx-auto w-16 h-16 mb-6 flex items-center justify-center bg-violet-900/50 rounded-full text-violet-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">1. Gather Memories</h3>
+                    <p class="text-slate-400">Securely upload your loved one's digital footprints like photos, texts, and voice notes.</p>
+                </div>
+                <!-- Step 2 -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="mx-auto w-16 h-16 mb-6 flex items-center justify-center bg-violet-900/50 rounded-full text-violet-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">2. Build Digital Twin</h3>
+                    <p class="text-slate-400">Our AI processes the data into an interactive, empathetic persona that captures their essence.</p>
+                </div>
+                <!-- Step 3 -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="mx-auto w-16 h-16 mb-6 flex items-center justify-center bg-violet-900/50 rounded-full text-violet-400">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">3. Converse Forever</h3>
+                    <p class="text-slate-400">Engage in meaningful, healing dialogues whenever you need to feel their presence.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Div 4: Key Features -->
+        <section id="features" class="fade-in-section">
+             <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold">Features Designed for Connection</h2>
+            </div>
+             <div class="grid md:grid-cols-3 gap-10 text-center">
+                <!-- Feature 1 -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="mx-auto w-16 h-16 mb-6 flex items-center justify-center bg-violet-900/50 rounded-full text-violet-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">Personalized AI Training</h3>
+                    <p class="text-slate-400">Create a unique AI by uploading photos, texts, videos, and voice.</p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="mx-auto w-16 h-16 mb-6 flex items-center justify-center bg-violet-900/50 rounded-full text-violet-400">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2V7a2 2 0 012-2h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293H17z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">Real-Time Empathetic Chat</h3>
+                    <p class="text-slate-400">Experience natural conversations that understand and respond with genuine empathy.</p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="mx-auto w-16 h-16 mb-6 flex items-center justify-center bg-violet-900/50 rounded-full text-violet-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.944a11.955 11.955 0 0118-8.618z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-3">Ethical & Secure</h3>
+                    <p class="text-slate-400">Built on consent, with your memories kept private and secure, always.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Div 5: Final Call to Action -->
+        <section class="fade-in-section text-center py-20">
+            <h2 class="text-4xl md:text-5xl font-bold mb-4">Join the Echoes Journey</h2>
+            <p class="text-lg md:text-xl text-slate-300 mb-10">Invest in a future where love and memory transcend time.</p>
+            <a href="chat.html" class="bg-violet-600 hover:bg-violet-500 text-white font-semibold py-4 px-10 text-lg rounded-xl transition-all duration-300">
+                Begin Your Journey Now
+            </a>
+        </section>
+    </main>
+    
+    <footer class="text-center py-8 border-t border-slate-800">
+        <p class="text-slate-500">&copy; 2025 Echoes. All rights reserved.</p>
+    </footer>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- Hero Title Animation ---
+        const titleElement = document.getElementById('hero-title');
+        if (titleElement) {
+            const titleText = "Echoes";
+            titleText.split('').forEach((char, index) => {
+                const span = document.createElement('span');
+                span.className = 'split-text-char';
+                span.innerHTML = char === ' ' ? '&nbsp;' : char;
+                span.style.animationDelay = `${index * 0.1 + 0.5}s`;
+                titleElement.appendChild(span);
+            });
+        }
+
+        // --- Fade-in sections on scroll ---
+        const sections = document.querySelectorAll('.fade-in-section');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        sections.forEach(section => {
+            observer.observe(section);
+        });
+
+        // --- Glass Surface Button Logic ---
+        const glassButton = document.getElementById('create-echo-btn');
+        if (glassButton) {
+            const uniqueId = 'echo-btn';
+            const filterId = `glass-filter-${uniqueId}`;
+            const redGradId = `red-grad-${uniqueId}`;
+            const blueGradId = `blue-grad-${uniqueId}`;
+
+            const svgFilter = glassButton.querySelector('.glass-surface__filter');
+            const feImage = svgFilter.querySelector('feImage');
+            const dispRed = svgFilter.querySelector('#redchannel');
+            const dispGreen = svgFilter.querySelector('#greenchannel');
+            const dispBlue = svgFilter.querySelector('#bluechannel');
+            const gaussianBlur = svgFilter.querySelector('feGaussianBlur');
+
+            const config = {
+                borderRadius: 24,
+                borderWidth: 0.07,
+                brightness: 60,
+                opacity: 0.8,
+                blur: 11,
+                displace: 15,
+                distortionScale: -150,
+                redOffset: 5,
+                greenOffset: 15,
+                blueOffset: 25,
+                xChannel: 'R',
+                yChannel: 'G',
+                mixBlendMode: 'screen',
+                backgroundOpacity: 0.1,
+                saturation: 1.2,
+            };
+
+            const generateDisplacementMap = () => {
+                const rect = glassButton.getBoundingClientRect();
+                const actualWidth = rect.width || 250;
+                const actualHeight = rect.height || 60;
+                const edgeSize = Math.min(actualWidth, actualHeight) * (config.borderWidth * 0.5);
+
+                const svgContent = `
+                    <svg viewBox="0 0 ${actualWidth} ${actualHeight}" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <linearGradient id="${redGradId}" x1="100%" y1="0%" x2="0%" y2="0%">
+                          <stop offset="0%" stop-color="#0000"/>
+                          <stop offset="100%" stop-color="red"/>
+                        </linearGradient>
+                        <linearGradient id="${blueGradId}" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stop-color="#0000"/>
+                          <stop offset="100%" stop-color="blue"/>
+                        </linearGradient>
+                      </defs>
+                      <rect x="0" y="0" width="${actualWidth}" height="${actualHeight}" fill="black"></rect>
+                      <rect x="0" y="0" width="${actualWidth}" height="${actualHeight}" rx="${config.borderRadius}" fill="url(#${redGradId})" />
+                      <rect x="0" y="0" width="${actualWidth}" height="${actualHeight}" rx="${config.borderRadius}" fill="url(#${blueGradId})" style="mix-blend-mode: ${config.mixBlendMode}" />
+                      <rect x="${edgeSize}" y="${edgeSize}" width="${actualWidth - edgeSize * 2}" height="${actualHeight - edgeSize * 2}" rx="${config.borderRadius}" fill="hsl(0 0% ${config.brightness}% / ${config.opacity})" style="filter:blur(${config.blur}px)" />
+                    </svg>
+                `;
+                return `data:image/svg+xml,${encodeURIComponent(svgContent)}`;
+            };
+
+            const updateGlassEffect = () => {
+                if (!feImage || !dispRed || !dispGreen || !dispBlue || !gaussianBlur) return;
+                feImage.setAttribute('href', generateDisplacementMap());
+                dispRed.setAttribute('scale', (config.distortionScale + config.redOffset).toString());
+                dispRed.setAttribute('xChannelSelector', config.xChannel);
+                dispRed.setAttribute('yChannelSelector', config.yChannel);
+                dispGreen.setAttribute('scale', (config.distortionScale + config.greenOffset).toString());
+                dispGreen.setAttribute('xChannelSelector', config.xChannel);
+                dispGreen.setAttribute('yChannelSelector', config.yChannel);
+                dispBlue.setAttribute('scale', (config.distortionScale + config.blueOffset).toString());
+                dispBlue.setAttribute('xChannelSelector', config.xChannel);
+                dispBlue.setAttribute('yChannelSelector', config.yChannel);
+                gaussianBlur.setAttribute('stdDeviation', config.displace.toString());
+            };
+
+            const supportsSVGFilters = () => {
+                const isWebkit = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+                const isFirefox = /Firefox/.test(navigator.userAgent);
+                if (isWebkit || isFirefox) return false;
+                const div = document.createElement('div');
+                div.style.backdropFilter = `url(#${filterId})`;
+                return div.style.backdropFilter !== '';
+            };
+
+            glassButton.style.setProperty('--glass-frost', config.backgroundOpacity);
+            glassButton.style.setProperty('--glass-saturation', config.saturation);
+            glassButton.style.setProperty('--filter-id', `url(#${filterId})`);
+
+            if (supportsSVGFilters()) {
+                glassButton.classList.add('glass-surface--svg');
+            } else {
+                glassButton.classList.add('glass-surface--fallback');
+            }
+
+            updateGlassEffect();
+            const resizeObserver = new ResizeObserver(() => {
+              setTimeout(updateGlassEffect, 0);
+            });
+            resizeObserver.observe(glassButton);
+        }
+    });
+    </script>
+</body>
+</html>
