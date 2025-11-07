@@ -2,7 +2,7 @@ import React from 'react';
 import './AnimatedTitle.css';
 import LiquidEther from './LiquidEther';
 import ScrollReveal from '../ScrollReveal/ScrollReveal.jsx';
-import CircularGallery from '../circularGallery/CircularGallery.jsx';
+
 
 
 const AnimatedTitle = () => {
