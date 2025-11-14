@@ -55,6 +55,7 @@
   margin: 0;
   padding: 0;
   text-transform: uppercase;
+  color:#000 !important;
 }
 
 /* Specific styling for "We" - CHANGED */
