@@ -24,7 +24,7 @@
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background-color: var(--surface-hover); border-radius: 3px; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-family); background-color: var(--background); color: var(--text-primary); overflow: hidden; height: 100vh; }
+body { font-family: var(--font-family); background-color: var(--background); color: var(--text-primary); height: 100vh; }
 .aurora-background {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-image: radial-gradient(circle at 15% 15%, var(--primary-glow), transparent 35%),
