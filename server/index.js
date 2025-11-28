@@ -6,7 +6,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/authRoutes.js');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 5001;
 
 // --- Middleware ---
 // Enable Cross-Origin Resource Sharing (CORS)
