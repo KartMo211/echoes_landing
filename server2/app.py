@@ -122,7 +122,12 @@ app = FastAPI(title="Digital Companion AI - Agent Edition", lifespan=lifespan)
 # Safer CORS configuration for Python FastAPI
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://echoes-landing-1.onrender.com"],
+    allow_origins=[
+        "https://echoes-landing-1.onrender.com",
+        "https://echoes-landing.onrender.com",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
