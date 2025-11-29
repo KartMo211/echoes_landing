@@ -2,10 +2,30 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import './Dashboard.css'; // Import the CSS
 
+import axios from 'axios';
+
 // --- Constants ---
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = import.meta.env.VITE_PYTHON_API_URL;
 const DB_NAME = 'EchoesChatHistory_v3';
 const DB_VERSION = 1;
+
+console.log("this is the API_BASE_URL", API_BASE_URL)
+
+// Create axios instance
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+// Add request interceptor to include X-User-ID
+apiClient.interceptors.request.use((config) => {
+  const userId = localStorage.getItem('echoes_user_id');
+  if (userId) {
+    config.headers['X-User-ID'] = userId;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
 
 function Dashboard() {
 
@@ -13,29 +33,29 @@ function Dashboard() {
 
   // --- State ---
   // The 'userId' state is now driven by the 'username' from Redux
-  const [userId, setUserId] = useState(localStorage.getItem('echoes_user_id') || ''); 
-  
+  const [userId, setUserId] = useState(localStorage.getItem('echoes_user_id') || '');
+
   const [characters, setCharacters] = useState([]);
   const [activeCharacter, setActiveCharacter] = useState(null);
   const [messages, setMessages] = useState([]);
-  
+
   // Removed modal states, as auth is handled by Redux
   // const [isUserIdModalOpen, setUserIdModalOpen] = useState(true); 
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [isPaletteOpen, setPaletteOpen] = useState(false);
   const [isProfilePanelOpen, setProfilePanelOpen] = useState(false);
-  
+
   const [isThinking, setThinking] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [formFeedback, setFormFeedback] = useState('');
-  
+
   const [connectionConnected, setConnectionConnected] = useState(false);
   const [connectionTitle, setConnectionTitle] = useState("Backend Connection Status");
-  
+
   const [auroraClass, setAuroraClass] = useState('');
   const [messageInput, setMessageInput] = useState('');
   const [commandInput, setCommandInput] = useState('');
-  
+
   const [createFormState, setCreateFormState] = useState({
     name: '',
     description: '',
@@ -56,8 +76,11 @@ function Dashboard() {
     try {
       // Use the apiClient instance. The 'X-User-ID' header is added by the interceptor.
       const response = await apiClient.get('/characters');
-      
-      setCharacters(response.data);
+
+      console.log("this is the response", response)
+
+      // Ensure response.data is an array
+      setCharacters(Array.isArray(response.data) ? response.data : []);
       setConnectionConnected(true);
       setConnectionTitle("Backend Connected");
     } catch (error) {
@@ -72,7 +95,7 @@ function Dashboard() {
   const initDB = () => {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
-      
+
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
         if (!db.objectStoreNames.contains('conversations')) {
@@ -80,12 +103,12 @@ function Dashboard() {
           store.createIndex('character_key', ['userId', 'charName'], { unique: false });
         }
       };
-      
+
       request.onsuccess = (event) => {
         dbRef.current = event.target.result;
         resolve(event.target.result);
       };
-      
+
       request.onerror = (event) => {
         console.error("IndexedDB error:", event.target.errorCode);
         reject(event.target.errorCode);
@@ -111,21 +134,21 @@ function Dashboard() {
       const store = transaction.objectStore('conversations');
       const index = store.index('character_key');
       const keyRange = IDBKeyRange.only([currentUserId, charName]);
-      
+
       const request = index.getAll(keyRange);
-      
+
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => resolve([]);
     });
   };
-  
+
   const clearChatHistory = async (characterName, currentUserId) => {
     if (!dbRef.current) return;
     const transaction = dbRef.current.transaction(['conversations'], 'readwrite');
     const store = transaction.objectStore('conversations');
     const index = store.index('character_key');
     const keyRange = IDBKeyRange.only([currentUserId, characterName]);
-    
+
     const request = index.openCursor(keyRange);
     request.onsuccess = (event) => {
       const cursor = event.target.result;
@@ -134,10 +157,10 @@ function Dashboard() {
         cursor.continue();
       } else {
         if (activeCharacter && activeCharacter.name === characterName) {
-          setMessages([{ 
-            text: `Chat history with ${characterName} has been cleared.`, 
-            sender: 'bot', 
-            avatarInitial: characterName.charAt(0) 
+          setMessages([{
+            text: `Chat history with ${characterName} has been cleared.`,
+            sender: 'bot',
+            avatarInitial: characterName.charAt(0)
           }]);
         }
       }
@@ -151,17 +174,17 @@ function Dashboard() {
     if (character) {
       setActiveCharacter(character);
       const history = await loadHistoryFromDB(charName, userId); // Uses 'userId' state
-      
+
       if (history.length > 0) {
         setMessages(history);
       } else {
-        setMessages([{ 
-          text: `You are now chatting with ${character.name}. ${character.description}`, 
-          sender: 'bot', 
-          avatarInitial: character.name.charAt(0) 
+        setMessages([{
+          text: `You are now chatting with ${character.name}. ${character.description}`,
+          sender: 'bot',
+          avatarInitial: character.name.charAt(0)
         }]);
       }
-      
+
       setPaletteOpen(false);
       setProfilePanelOpen(false); // Close profile panel when switching
     }
@@ -180,38 +203,38 @@ function Dashboard() {
 
     try {
       // Refactored to Axios
-      const response = await apiClient.post('/chat', { 
-        character_name: activeCharacter.name, 
-        message: text 
+      const response = await apiClient.post('/chat', {
+        character_name: activeCharacter.name,
+        message: text
       });
       // The interceptor adds the 'X-User-ID' header
 
       const chatResponse = response.data; // Data is directly on response.data
       const botMessage = {
-        text: chatResponse.response, 
-        sender: 'bot', 
-        avatarInitial: activeCharacter.name.charAt(0), 
+        text: chatResponse.response,
+        sender: 'bot',
+        avatarInitial: activeCharacter.name.charAt(0),
         emotion: chatResponse.emotion,
         timestamp: new Date().toISOString()
       };
-      
+
       setMessages(prev => [...prev, botMessage]);
       addMessageToDB(botMessage);
-      
+
       if (chatResponse.emotion) {
         setAuroraClass(chatResponse.emotion.toLowerCase());
-        setCharacters(prev => prev.map(c => 
-          c.name === activeCharacter.name 
-          ? { ...c, emotion: chatResponse.emotion } 
-          : c
+        setCharacters(prev => prev.map(c =>
+          c.name === activeCharacter.name
+            ? { ...c, emotion: chatResponse.emotion }
+            : c
         ));
       }
-      
+
     } catch (error) {
       const errorMessageText = error.response?.data?.detail || error.message || 'API response error';
       const errorMessage = {
-        text: `Error: ${errorMessageText}`, 
-        sender: 'bot', 
+        text: `Error: ${errorMessageText}`,
+        sender: 'bot',
         avatarInitial: '!',
         timestamp: new Date().toISOString()
       };
@@ -245,7 +268,7 @@ function Dashboard() {
 
     setIsCreating(true);
     setFormFeedback('');
-    
+
     try {
       // Refactored to Axios
       // The interceptor adds the 'X-User-ID' header
@@ -257,14 +280,14 @@ function Dashboard() {
       await fetchCharacters(userId); // Re-fetch characters
       closeCreateModal();
       handleSetActiveCharacter(newChar.name);
-    } catch(error) {
+    } catch (error) {
       const errorMessage = error.response?.data?.detail || error.message || 'Failed to create character';
       setFormFeedback(`Error: ${errorMessage}`);
     } finally {
       setIsCreating(false);
     }
   };
-  
+
   const handleDeleteCharacter = async (charName) => {
     if (window.confirm(`Are you sure you want to permanently delete ${charName}? This action cannot be undone.`)) {
       try {
@@ -277,8 +300,8 @@ function Dashboard() {
         }
 
         setCharacters(prev => prev.filter(c => c.name !== charName));
-        clearChatHistory(charName, userId); 
-        
+        clearChatHistory(charName, userId);
+
         if (activeCharacter && activeCharacter.name === charName) {
           setActiveCharacter(null);
         }
@@ -291,11 +314,11 @@ function Dashboard() {
       }
     }
   };
-  
+
   const handleClearHistory = (charName) => {
-      if (window.confirm(`Are you sure you want to clear your chat history with ${charName}?`)) {
-          clearChatHistory(charName, userId);
-      }
+    if (window.confirm(`Are you sure you want to clear your chat history with ${charName}?`)) {
+      clearChatHistory(charName, userId);
+    }
   };
 
   const closeCreateModal = () => {
@@ -304,10 +327,10 @@ function Dashboard() {
     setCreateFormState({ name: '', description: '', my_name: '' });
     setCreateFile(null);
   };
-  
+
   const openCreateModal = () => {
-      setPaletteOpen(false);
-      setTimeout(() => setCreateModalOpen(true), 300); // Wait for palette to close
+    setPaletteOpen(false);
+    setTimeout(() => setCreateModalOpen(true), 300); // Wait for palette to close
   };
 
   // --- Effects ---
@@ -357,26 +380,26 @@ function Dashboard() {
       chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
     }
   }, [messages]);
-  
+
   // Focus command input
   useEffect(() => {
-      if (isPaletteOpen && commandInputRef.current) {
-          commandInputRef.current.focus();
-      }
+    if (isPaletteOpen && commandInputRef.current) {
+      commandInputRef.current.focus();
+    }
   }, [isPaletteOpen]);
-  
+
   // --- Render Logic ---
   const commands = [
-      { name: 'Create New Character', action: 'create_char', icon: '✨', handler: openCreateModal },
-      ...characters.map(c => ({ 
-          name: `Chat with ${c.name}`, 
-          action: 'chat', 
-          icon: '💬', 
-          charName: c.name,
-          handler: () => handleSetActiveCharacter(c.name)
-      }))
+    { name: 'Create New Character', action: 'create_char', icon: '✨', handler: openCreateModal },
+    ...characters.map(c => ({
+      name: `Chat with ${c.name}`,
+      action: 'chat',
+      icon: '💬',
+      charName: c.name,
+      handler: () => handleSetActiveCharacter(c.name)
+    }))
   ];
-  
+
   const filteredCommands = commandInput
     ? commands.filter(item => item.name.toLowerCase().includes(commandInput.toLowerCase()))
     : commands;
@@ -391,9 +414,9 @@ function Dashboard() {
         <aside className="sidebar" id="sidebar">
           <header className="sidebar-header">
             <h1>Digital Me</h1>
-            <div 
+            <div
               className={`connection-status ${connectionConnected ? 'connected' : ''}`}
-              id="connection-status" 
+              id="connection-status"
               title={connectionTitle}
             ></div>
           </header>
@@ -406,7 +429,7 @@ function Dashboard() {
               </div>
             ) : (
               characters.map(char => (
-                <div 
+                <div
                   key={char.name}
                   className={`character-list-item ${activeCharacter?.name === char.name ? 'active' : ''}`}
                   onClick={() => handleSetActiveCharacter(char.name)}
@@ -458,9 +481,9 @@ function Dashboard() {
               </div>
               <div className="chat-input-container">
                 <form id="chat-form" className="chat-input-wrapper" onSubmit={handleSendMessage}>
-                  <input 
-                    type="text" 
-                    id="message-input" 
+                  <input
+                    type="text"
+                    id="message-input"
                     placeholder="Ask anything..."
                     value={messageInput}
                     onChange={e => setMessageInput(e.target.value)}
@@ -480,9 +503,9 @@ function Dashboard() {
         <div className="modal-overlay active" id="command-palette-overlay" onClick={() => setPaletteOpen(false)}>
           <div className="modal-content" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <input 
-                type="text" 
-                id="command-input" 
+              <input
+                type="text"
+                id="command-input"
                 placeholder="Type a command or search..."
                 ref={commandInputRef}
                 value={commandInput}
@@ -496,9 +519,9 @@ function Dashboard() {
                   <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No results found.</div>
                 ) : (
                   filteredCommands.map(item => (
-                    <div 
-                      key={item.name} 
-                      className="command-item" 
+                    <div
+                      key={item.name}
+                      className="command-item"
                       onClick={item.handler}
                     >
                       <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
@@ -554,7 +577,7 @@ function Dashboard() {
           </div>
         </div>
       )}
-      
+
       {/* Character Profile Panel */}
       <aside className={`character-profile-panel ${isProfilePanelOpen ? 'active' : ''}`} id="character-profile-panel">
         {activeCharacter && (
@@ -583,15 +606,15 @@ function Dashboard() {
           </>
         )}
       </aside>
-      
+
       {/* AI Orb */}
-      <div 
-        className={`ai-orb ${isThinking ? 'thinking' : ''}`} 
-        id="ai-orb" 
+      <div
+        className={`ai-orb ${isThinking ? 'thinking' : ''}`}
+        id="ai-orb"
         title="Quick Actions (Ctrl+K)"
         onClick={() => setPaletteOpen(true)}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.41 1.41L16.17 10H4v4h12.17l-5.58 5.59L12 21l8-8-8-8z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.41 1.41L16.17 10H4v4h12.17l-5.58 5.59L12 21l8-8-8-8z" /></svg>
       </div>
     </>
   );
