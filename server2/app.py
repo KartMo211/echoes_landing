@@ -2,8 +2,10 @@ import os
 import json
 import re
 from typing import List, Dict, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
+import uuid
+import httpx
 
 import uvicorn
 from dotenv import load_dotenv
@@ -11,15 +13,17 @@ from fastapi import FastAPI, Depends, HTTPException, Form, UploadFile, File, Hea
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import AsyncGraphDatabase, AsyncSession
 from pydantic import BaseModel
+from passlib.context import CryptContext
 
-# --- Agentic Imports (Corrected for LangChain v0.1.0+) ---
+# --- Agentic Imports ---
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.tools import Tool  # Corrected: Moved from langchain.tools
+from langchain_core.tools import Tool
 from langchain_community.tools import DuckDuckGoSearchRun
-# from langchain_hub import pull  # <-- FIX: Removed this import
-from langchain_agents import create_react_agent, AgentExecutor  # Corrected: Moved from langchain.agents
+from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage
+from langgraph.prebuilt import create_react_agent
 
 # --- 1. Configuration and Initialization ---
 
@@ -29,21 +33,27 @@ NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USER = os.getenv("NEO4J_USER")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GIPHY_API_KEY = os.getenv("GIPHY_API_KEY")
 
-if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, GOOGLE_API_KEY]):
-    raise ValueError("One or more environment variables are not set. Please check your .env file.")
+if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, GOOGLE_API_KEY, GIPHY_API_KEY]):
+    raise ValueError("One or more environment variables are not set. Check your .env file.")
 
-app = FastAPI(title="Digital Companion AI - Multi-Tenant Agent Edition")
+# ⭐ FIX: Corrected model initialization
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.7)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"],
-)
+# --- 2. Security & Authentication ---
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.7)
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
-# --- 2. Pydantic Models & Enums ---
+def get_password_hash(password):
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    return pwd_context.hash(password_bytes)
+
+# --- 3. Pydantic Models & Enums ---
 
 class Emotion(str, Enum):
     JOY = "Joy"; CURIOSITY = "Curiosity"; EMPATHY = "Empathy"
@@ -52,6 +62,7 @@ class Emotion(str, Enum):
 class RequestType(str, Enum):
     CONVERSATIONAL = "conversational"
     AGENTIC = "agentic"
+    GIF = "gif" # ⭐ NEW: Added GIF request type
 
 class Character(BaseModel):
     name: str
@@ -63,10 +74,24 @@ class ChatRequest(BaseModel):
     character_name: str; message: str
 
 class ProactiveChatResponse(BaseModel):
-    character_name: str; response: str; emotion: Emotion
+    character_name: str
+    response_type: str 
+    content: str
+    emotion: Emotion
 
-# --- 3. Graph Database Connection Management ---
+class UserCreate(BaseModel):
+    username: str
+    password: str
 
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    user_id: str
+    username: str
+
+# --- 4. Graph Database Connection Management ---
 class GraphDB:
     _driver = None
     @classmethod
@@ -83,55 +108,70 @@ async def get_db_session() -> AsyncSession:
     async with driver.session() as session:
         yield session
 
-@app.on_event("shutdown")
-async def shutdown_event():
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    yield
+    # Shutdown
     await GraphDB.close_driver()
 
-# --- 4. Multi-Tenant Graph CRUD Operations ---
+app = FastAPI(title="Digital Companion AI - Agent Edition", lifespan=lifespan)
+
+# Safer CORS configuration for Python FastAPI
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://echoes-landing-1.onrender.com"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- 5. Multi-Tenant Graph CRUD Operations ---
 
 async def get_or_create_user(session: AsyncSession, user_id: str) -> None:
-    """Ensures a user node exists for the given ID. Simulates signup."""
     query = "MERGE (u:User {user_id: $user_id}) RETURN u"
     await session.run(query, user_id=user_id)
+
+async def get_user_by_username(session: AsyncSession, username: str) -> Optional[Dict]:
+    query = "MATCH (u:User {username: $username}) RETURN u"
+    result = await session.run(query, username=username)
+    record = await result.single()
+    return record["u"] if record else None
+
+async def create_user(session: AsyncSession, username: str, hashed_password: str) -> Dict:
+    user_id = str(uuid.uuid4())
+    query = "CREATE (u:User {user_id: $user_id, username: $username, hashed_password: $hashed_password}) RETURN u"
+    result = await session.run(query, user_id=user_id, username=username, hashed_password=hashed_password)
+    record = await result.single()
+    return record["u"]
 
 async def create_character(session: AsyncSession, user_id: str, name: str, description: str, traits: Dict, rag_content: str) -> Optional[Dict]:
     query = """
     MATCH (u:User {user_id: $user_id})
     CREATE (u)-[:OWNS]->(c:Character {
-        name: $name, 
-        description: $description, 
-        traits: $traits_json, 
-        rag_content: $rag_content, 
-        created_at: datetime()
-    }) 
-    RETURN c
+        name: $name, description: $description, traits: $traits_json, 
+        rag_content: $rag_content, created_at: datetime()
+    }) RETURN c
     """
     result = await session.run(query, user_id=user_id, name=name, description=description, traits_json=json.dumps(traits), rag_content=rag_content)
     record = await result.single()
     return record["c"] if record else None
 
 async def get_character_by_name(session: AsyncSession, user_id: str, name: str) -> Optional[Dict]:
-    query = """
-    MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character {name: $name}) 
-    RETURN c
-    """
+    query = "MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character {name: $name}) RETURN c"
     result = await session.run(query, user_id=user_id, name=name)
     record = await result.single()
     return record["c"] if record else None
 
 async def get_all_characters(session: AsyncSession, user_id: str) -> List[Dict]:
-    query = """
-    MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character) 
-    RETURN c ORDER BY c.name
-    """
+    query = "MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character) RETURN c ORDER BY c.name"
     result = await session.run(query, user_id=user_id)
     return [record["c"] async for record in result]
     
 async def delete_character_by_name(session: AsyncSession, user_id: str, name: str) -> bool:
-    query = """
-    MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character {name: $name}) 
-    DETACH DELETE c
-    """
+    query = "MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character {name: $name}) DETACH DELETE c"
     result = await session.run(query, user_id=user_id, name=name)
     summary = await result.consume()
     return summary.counters.nodes_deleted > 0
@@ -146,34 +186,20 @@ async def ingest_turn_with_context(session: AsyncSession, user_id: str, characte
     CREATE (new_turn)-[:PART_OF]->(c)
     FOREACH (lt IN CASE WHEN last_turn IS NOT NULL THEN [last_turn] ELSE [] END | CREATE (lt)-[:NEXT]->(new_turn))
     WITH new_turn
-    MERGE (ue:Emotion {type: $user_emotion})
-    MERGE (be:Emotion {type: $bot_emotion})
-    CREATE (new_turn)-[:EVOKED_USER_EMOTION]->(ue)
-    CREATE (new_turn)-[:EXPRESSED_BOT_EMOTION]->(be)
-    WITH new_turn
-    UNWIND $concepts as concept_name
+    MERGE (ue:Emotion {type: $user_emotion}) MERGE (be:Emotion {type: $bot_emotion})
+    CREATE (new_turn)-[:EVOKED_USER_EMOTION]->(ue) CREATE (new_turn)-[:EXPRESSED_BOT_EMOTION]->(be)
+    WITH new_turn UNWIND $concepts as concept_name
     MERGE (e:Entity {name: toLower(concept_name)})
-    MERGE (new_turn)-[r:MENTIONS]->(e)
-        ON CREATE SET r.weight = 1
-        ON MATCH SET r.weight = r.weight + 1
+    MERGE (new_turn)-[r:MENTIONS]->(e) ON CREATE SET r.weight = 1 ON MATCH SET r.weight = r.weight + 1
     """
     await session.run(query, user_id=user_id, character_name=character_name, user_message=user_message, bot_response=bot_response, user_emotion=user_emotion.value, bot_emotion=bot_emotion.value, concepts=concepts)
 
 async def get_memory_context_for_agent(session: AsyncSession, user_id: str, character_name: str, concepts: List[str]) -> str:
     if not concepts:
-        query = """
-        MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character {name: $character_name})<-[:PART_OF]-(turn:ConversationTurn) 
-        RETURN turn.user_message AS user, turn.bot_response AS bot 
-        ORDER BY turn.timestamp DESC LIMIT 2
-        """
+        query = "MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character {name: $character_name})<-[:PART_OF]-(turn:ConversationTurn) RETURN turn.user_message AS user, turn.bot_response AS bot ORDER BY turn.timestamp DESC LIMIT 3"
         result = await session.run(query, user_id=user_id, character_name=character_name)
     else:
-        query = """
-        MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character {name: $character_name})<-[:PART_OF]-(turn:ConversationTurn)-[r:MENTIONS]->(e:Entity) 
-        WHERE toLower(e.name) IN [c in $concepts | toLower(c)] 
-        RETURN turn.user_message AS user, turn.bot_response AS bot 
-        ORDER BY r.weight DESC, turn.timestamp DESC LIMIT 3
-        """
+        query = "MATCH (u:User {user_id: $user_id})-[:OWNS]->(c:Character {name: $character_name})<-[:PART_OF]-(turn:ConversationTurn)-[r:MENTIONS]->(e:Entity) WHERE toLower(e.name) IN [c in $concepts | toLower(c)] RETURN turn.user_message AS user, turn.bot_response AS bot ORDER BY r.weight DESC, turn.timestamp DESC LIMIT 3"
         result = await session.run(query, user_id=user_id, character_name=character_name, concepts=concepts)
     
     records = [record async for record in result]
@@ -183,23 +209,16 @@ async def get_memory_context_for_agent(session: AsyncSession, user_id: str, char
     for record in reversed(records): context += f"- User: {record['user']}\n- You: {record['bot']}\n"
     return context
 
-# --- 5. AI Business Logic and Services ---
+# --- 6. AI Business Logic and Services ---
 
 async def calculate_traits_from_text(content: str) -> Dict[str, float]:
-    """Uses the LLM to perform a personality analysis on the provided text."""
     print("--- Calculating personality traits from document ---")
-    
     prompt = ChatPromptTemplate.from_template(
-        "Analyze the following text which is a chat history. Based on the language, tone, and vocabulary, determine the personality traits of the primary speaker. "
-        "Provide your analysis as a JSON object with three keys: 'formal', 'casual', and 'emotional'. "
-        "Each key should have a floating-point value between 0.0 and 1.0, representing the strength of that trait. "
-        "Return ONLY the JSON object.\n\n"
+        "Analyze the following text... Return ONLY the JSON object.\n\n"
         "TEXT TO ANALYZE:\n---\n{text}\n---"
     )
-    
     chain = prompt | llm | StrOutputParser()
     response_str = await chain.ainvoke({"text": content[:8000]}) 
-    
     try:
         json_match = re.search(r'\{.*\}', response_str, re.DOTALL)
         if json_match:
@@ -207,8 +226,8 @@ async def calculate_traits_from_text(content: str) -> Dict[str, float]:
             total = sum(data.values())
             if total > 0 and all(isinstance(v, (int, float)) for v in data.values()):
                 return {k: v / total for k, v in data.items()}
-        return {"formal": 0.3, "casual": 0.5, "emotional": 0.2} # Fallback
-    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        return {"formal": 0.3, "casual": 0.5, "emotional": 0.2}
+    except Exception as e:
         print(f"Error parsing traits from LLM response: {e}. Using default.")
         return {"formal": 0.3, "casual": 0.5, "emotional": 0.2}
 
@@ -222,7 +241,12 @@ async def analyze_emotion_from_text(text: str) -> Emotion:
     try: return Emotion(response.strip())
     except ValueError: return Emotion.NEUTRAL
 
+# ⭐ UPGRADED: Conversational Router now detects /gif
 def route_request(message: str) -> RequestType:
+    """Determines if a message requires a GIF, agent, or simple conversational response."""
+    if message.strip().startswith("/gif"):
+        return RequestType.GIF
+        
     agentic_keywords = ["who is", "what is", "latest", "news", "update", "sports", "search for", "find out about", "what happened in"]
     message_lower = message.lower()
     if any(keyword in message_lower for keyword in agentic_keywords):
@@ -252,21 +276,11 @@ async def generate_conversational_response(character: Character, memory_context:
 
 # --- AGENT SETUP ---
 search = DuckDuckGoSearchRun()
-tools = [
-    Tool(
-        name="Web Search",
-        func=search.run,
-        description="useful for when you need to answer questions about current events, sports, facts, or information you do not have in your memory. Input should be a clear search query.",
-    ),
-]
+tools = [search]
 
-def create_agent_executor() -> AgentExecutor:
-    """Creates a new agent executor, using the standard ReAct prompt."""
-    
-    # FIX: Hard-code the ReAct prompt to avoid 'langchain-hub'
-    # This is the prompt from hub.pull("hwchase17/react")
-    system_prompt_template = """
-You are a helpful assistant. You have access to the following tools:
+def create_agent_executor():
+    """Creates a new agent executor, using LangGraph."""
+    system_prompt = """You are a helpful assistant. You have access to the following tools:
 
 {tools}
 
@@ -286,31 +300,62 @@ Thought: Do I need to use a tool? No
 Final Answer: The final answer to the user
 ```
 """
-    
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt_template),
-        MessagesPlaceholder(variable_name="chat_history", optional=True), # For memory
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad") # For agent thoughts
-    ])
-
-    agent = create_react_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
+    # LangGraph's create_react_agent handles the loop and tool calling.
+    # We pass the system prompt as the 'prompt' argument.
+    return create_react_agent(llm, tools, prompt=system_prompt)
 
 agent_executor = create_agent_executor()
 
-# --- 6. API Endpoints ---
+# ⭐ NEW: Standalone Giphy Search Function
+async def search_giphy(query: str) -> str:
+    """Searches Giphy for a relevant GIF and returns its URL."""
+    print(f"--- Calling Giphy API for: {query} ---")
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.giphy.com/v1/gifs/search",
+                params={"api_key": GIPHY_API_KEY, "q": query, "limit": 1, "rating": "g"}
+            )
+            data = response.json()
+            if data["data"]:
+                url = data["data"][0]["images"]["original"]["url"]
+                return url
+        # Fallback GIF if no results
+        return "https://media4.giphy.com/media/v1.Y2lkPWUyZDBhMzAxNnNyNTlidGFyMDRid3pid3premtucGZsY29iemRwbDlkYWl0dGhidSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/7Tf0mmLAHxqi30mWpU/giphy.gif"
+    except Exception as e:
+        print(f"Giphy tool error: {e}")
+        # Fallback GIF on error
+        return "https://media4.giphy.com/media/v1.Y2lkPWUyZDBhMzAxNnNyNTlidGFyMDRid3pid3premtucGZsY29iemRwbDlkYWl0dGhidSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/7Tf0mmLAHxqi30mWpU/giphy.gif"
 
-# ⭐ NEW: Simulated authentication dependency
-async def get_current_user_id(x_user_id: str = Header(None)) -> str:
+
+# --- 7. API Endpoints ---
+
+async def get_current_user_id(x_user_id: str = Header(..., alias="X-User-ID")) -> str:
     if not x_user_id:
-        print("Warning: No X-User-ID header found. Using default 'dev_user'.")
-        return "dev_user"
+        raise HTTPException(status_code=401, detail="X-User-ID header is missing")
     return x_user_id
 
 @app.get("/")
 async def root(): return {"message": "Digital Companion AI - Multi-Tenant Agent Edition is running."}
 
+# --- Auth Endpoints ---
+@app.post("/register", response_model=Token)
+async def handle_register(user: UserCreate, session: AsyncSession = Depends(get_db_session)):
+    db_user = await get_user_by_username(session, user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    hashed_password = get_password_hash(user.password)
+    new_user = await create_user(session, user.username, hashed_password)
+    return Token(user_id=new_user["user_id"], username=new_user["username"])
+
+@app.post("/token", response_model=Token)
+async def handle_login(form_data: UserLogin, session: AsyncSession = Depends(get_db_session)):
+    user = await get_user_by_username(session, form_data.username)
+    if not user or not verify_password(form_data.password, user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    return Token(user_id=user["user_id"], username=user["username"])
+
+# --- Character Endpoints (Multi-Tenant) ---
 @app.post("/characters", response_model=Character, status_code=201)
 async def handle_create_character(
     session: AsyncSession = Depends(get_db_session),
@@ -319,12 +364,10 @@ async def handle_create_character(
     my_name: str = Form(...), file: UploadFile = File(...)
 ):
     try:
-        await get_or_create_user(session, user_id) # Ensure user exists
-        
+        await get_or_create_user(session, user_id)
         existing = await get_character_by_name(session, user_id, name)
         if existing:
             raise HTTPException(status_code=409, detail="A character with this name already exists for your account.")
-            
         content = (await file.read()).decode('utf-8')
         traits = await calculate_traits_from_text(content)
         character_node = await create_character(session, user_id, name, description, traits, content)
@@ -339,7 +382,7 @@ async def handle_get_characters(
     session: AsyncSession = Depends(get_db_session),
     user_id: str = Depends(get_current_user_id)
 ):
-    await get_or_create_user(session, user_id) # Ensure user exists
+    await get_or_create_user(session, user_id)
     characters_data = await get_all_characters(session, user_id)
     return [Character(name=c.get("name"), description=c.get("description"), traits=json.loads(c.get("traits", "{}"))) for c in characters_data]
 
@@ -354,6 +397,7 @@ async def handle_delete_character(
         raise HTTPException(status_code=404, detail="Character not found for your account.")
     return None
 
+# ⭐ UPGRADED: Chat Endpoint now handles all 3 RequestTypes
 @app.post("/chat", response_model=ProactiveChatResponse)
 async def handle_chat(
     request: ChatRequest, 
@@ -376,7 +420,11 @@ async def handle_chat(
     
     request_type = route_request(request.message)
     
-    final_response = ""
+    response_type = "text"
+    final_response_content = ""
+    bot_emotion = Emotion.NEUTRAL
+    user_emotion = await analyze_emotion_from_text(request.message)
+
     try:
         if request_type == RequestType.AGENTIC:
             print("--- Routing to Agentic Path ---")
@@ -385,22 +433,40 @@ async def handle_chat(
                 f"Your Memory: {memory_context}\n"
                 f"User's message: {request.message}"
             )
-            response_data = await agent_executor.ainvoke({"input": agent_input})
-            final_response = response_data.get("output", "I'm not sure how to respond to that.")
-        else:
+            response_data = await agent_executor.ainvoke({"messages": [HumanMessage(content=agent_input)]})
+            final_response_content = response_data["messages"][-1].content
+            bot_emotion = await analyze_emotion_from_text(final_response_content)
+
+        elif request_type == RequestType.GIF:
+            print("--- Routing to GIF Path ---")
+            search_query = request.message.replace("/gif", "").strip()
+            if not search_query:
+                final_response_content = "You need to tell me what to search for! (e.g., /gif hello)"
+                bot_emotion = Emotion.CONFUSION
+            else:
+                response_type = "gif"
+                final_response_content = await search_giphy(search_query)
+                bot_emotion = Emotion.JOY
+        
+        else: # Conversational
             print("--- Routing to Conversational Path ---")
-            final_response = await generate_conversational_response(character, memory_context, request.message)
+            final_response_content = await generate_conversational_response(character, memory_context, request.message)
+            bot_emotion = await analyze_emotion_from_text(final_response_content)
 
     except Exception as e:
         print(f"Error during response generation: {e}")
-        final_response = "I seem to be having trouble thinking right now. Could you ask me something else?"
+        final_response_content = "I seem to be having trouble thinking right now. Could you ask me something else?"
+        bot_emotion = Emotion.CONFUSION
 
-    user_emotion = await analyze_emotion_from_text(request.message)
-    bot_emotion = await analyze_emotion_from_text(final_response)
-    await ingest_turn_with_context(session, user_id, request.character_name, request.message, final_response, user_emotion, bot_emotion, concepts)
+    await ingest_turn_with_context(session, user_id, request.character_name, request.message, final_response_content, user_emotion, bot_emotion, concepts)
     
-    return ProactiveChatResponse(character_name=request.character_name, response=final_response, emotion=bot_emotion)
+    return ProactiveChatResponse(
+        character_name=request.character_name, 
+        response_type=response_type,
+        content=final_response_content, 
+        emotion=bot_emotion
+    )
 
-# --- 7. Server Execution ---
+# --- 8. Server Execution ---
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
