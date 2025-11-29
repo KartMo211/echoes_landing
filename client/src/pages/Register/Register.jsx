@@ -198,10 +198,10 @@ function RegisterPage() {
     try {
       // Destructure only the fields the backend schema expects
       const { email, password } = formData;
-      
+
       // Send request to backend
       const response = await axios.post(
-        'http://localhost:5001/api/auth/register', 
+        `${import.meta.env.VITE_API_URL}api/auth/register`,
         { email, password } // Only send email and password
       );
 
@@ -209,7 +209,7 @@ function RegisterPage() {
       console.log('Registration successful:', response.data);
       setIsError(false);
       setMessage(response.data.message || 'Registration successful! Redirecting to login...');
-      
+
       // Redirect to login page after a short delay
       setTimeout(() => {
         if (navigate) navigate('/login');
@@ -233,13 +233,13 @@ function RegisterPage() {
 
   return (
     <>
-      <NavBar/>
+      <NavBar />
       <AuthPageStyles />
       <div className="auth-wrapper">
         <div className="auth-card">
           <h2>Create Account</h2>
           <p className="auth-sub">Get started by creating your new account.</p>
-          
+
           <form className="auth-form" onSubmit={handleSubmit}>
             {/* Message box for errors or success */}
             {message && (
@@ -248,36 +248,36 @@ function RegisterPage() {
               </div>
             )}
 
-            <input 
-              type="email" 
-              name="email" 
-              placeholder="Email address" 
-              required 
+            <input
+              type="email"
+              name="email"
+              placeholder="Email address"
+              required
               value={formData.email}
               onChange={handleChange}
               disabled={isLoading}
             />
-            <input 
-              type="password" 
-              name="password" 
-              placeholder="Password" 
-              required 
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              required
               value={formData.password}
               onChange={handleChange}
               disabled={isLoading}
             />
-            <input 
-              type="password" 
-              name="confirmPassword" 
-              placeholder="Confirm Password" 
-              required 
+            <input
+              type="password"
+              name="confirmPassword"
+              placeholder="Confirm Password"
+              required
               value={formData.confirmPassword}
               onChange={handleChange}
               disabled={isLoading}
             />
-            <button 
-              className="btn primary" 
-              type="submit" 
+            <button
+              className="btn primary"
+              type="submit"
               disabled={isLoading}
             >
               {isLoading ? 'Creating Account...' : 'Sign Up'}

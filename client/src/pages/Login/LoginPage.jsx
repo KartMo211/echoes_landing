@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
-import { setCredentials } from '../../features/auth/authSlice'; 
+import { setCredentials } from '../../features/auth/authSlice';
 import NavBar from '../../components/NavBar/NavBar';
 
 // Import the external stylesheet
 import './LoginPage.css';
 
 function LoginPage() {
-  const dispatch = useDispatch(); 
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -42,7 +43,7 @@ function LoginPage() {
     try {
       // Send request to backend on port 5001 using axios
       const response = await axios.post(
-        'http://localhost:5001/api/auth/login', 
+        `${import.meta.env.VITE_API_URL}api/auth/login`,
         formData
       );
 
@@ -50,7 +51,7 @@ function LoginPage() {
       console.log('Login successful:', response.data.token);
       setIsError(false);
       setMessage(response.data.message || 'Login successful! Welcome back.');
-      
+
       // Get data from response
       const token = response.data.token;
       // Get username from API response, or fall back to the email from the form
@@ -58,12 +59,12 @@ function LoginPage() {
 
       // Dispatch action to save credentials to Redux store
       dispatch(setCredentials({ username, token }));
-      
+
     } catch (error) {
       // axios throws an error for non-2xx responses
       console.error('Login error:', error);
       setIsError(true);
-      
+
       // Get the error message from the backend's JSON response
       if (error.response && error.response.data && error.response.data.message) {
         setMessage(error.response.data.message);
@@ -79,15 +80,15 @@ function LoginPage() {
 
   return (
     <>
-      <NavBar/>
+      <NavBar />
       {/* <LoginStyles /> <-- This is now in LoginPage.css */}
       <div className="login-wrapper">
         <div className="login-card">
           <h2>Login</h2>
           <p className="login-sub">Welcome back! Please enter your details.</p>
-          
+
           <form className="login-form" onSubmit={handleSubmit}>
-            
+
             {/* Message Box */}
             {message && (
               <div className={`message-box ${isError ? 'error' : 'success'}`}>
@@ -95,28 +96,28 @@ function LoginPage() {
               </div>
             )}
 
-            <input 
-              type="email" 
-              name="email" 
-              placeholder="Email address" 
-              required 
+            <input
+              type="email"
+              name="email"
+              placeholder="Email address"
+              required
               value={formData.email}
               onChange={handleChange}
               disabled={isLoading}
             />
-            
-            <input 
-              type="password" 
-              name="password" 
-              placeholder="Password" 
-              required 
+
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              required
               value={formData.password}
               onChange={handleChange}
               disabled={isLoading}
             />
-            <button 
-              className="btn primary" 
-              type="submit" 
+            <button
+              className="btn primary"
+              type="submit"
               disabled={isLoading}
             >
               {isLoading ? 'Signing In...' : 'Sign In'}
@@ -125,7 +126,7 @@ function LoginPage() {
 
           <div className="login-links">
             <a href="#">Forgot Password?</a>
-            <span>No account? <a href="#">Sign Up</a></span>
+            <span>No account? <Link to="/register">Sign Up</Link></span>
           </div>
         </div>
       </div>
