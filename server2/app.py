@@ -30,10 +30,12 @@ from langgraph.prebuilt import create_react_agent
 load_dotenv()
 
 NEO4J_URI = os.getenv("NEO4J_URI")
-NEO4J_USER = os.getenv("NEO4J_USER")
+NEO4J_USER = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GIPHY_API_KEY = os.getenv("GIPHY_API_KEY")
+
+print("NEO4J_PASSWORD",NEO4J_PASSWORD,'\n',"NEO4J_URI",NEO4J_URI,'\n',"NEO4J_USER",NEO4J_USER,'\n',"GOOGLE_API_KEY",GOOGLE_API_KEY,'\n',"GIPHY_API_KEY",GIPHY_API_KEY,'\n')
 
 if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, GOOGLE_API_KEY, GIPHY_API_KEY]):
     raise ValueError("One or more environment variables are not set. Check your .env file.")
@@ -122,12 +124,7 @@ app = FastAPI(title="Digital Companion AI - Agent Edition", lifespan=lifespan)
 # Safer CORS configuration for Python FastAPI
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://echoes-landing-1.onrender.com",
-        "https://echoes-landing.onrender.com",
-        "http://localhost:5173",
-        "http://localhost:3000"
-    ],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -442,6 +439,9 @@ async def handle_chat(
             final_response_content = response_data["messages"][-1].content
             bot_emotion = await analyze_emotion_from_text(final_response_content)
 
+            print(f"Final response content: {final_response_content}")
+            print(f"bot emotion: {bot_emotion}")
+
         elif request_type == RequestType.GIF:
             print("--- Routing to GIF Path ---")
             search_query = request.message.replace("/gif", "").strip()
@@ -457,6 +457,9 @@ async def handle_chat(
             print("--- Routing to Conversational Path ---")
             final_response_content = await generate_conversational_response(character, memory_context, request.message)
             bot_emotion = await analyze_emotion_from_text(final_response_content)
+
+            print(f"Final response content: {final_response_content}")
+            print(f"bot emotion: {bot_emotion}")
 
     except Exception as e:
         print(f"Error during response generation: {e}")

@@ -211,7 +211,7 @@ function Dashboard() {
 
       const chatResponse = response.data; // Data is directly on response.data
       const botMessage = {
-        text: chatResponse.response,
+        text: chatResponse.content,
         sender: 'bot',
         avatarInitial: activeCharacter.name.charAt(0),
         emotion: chatResponse.emotion,
