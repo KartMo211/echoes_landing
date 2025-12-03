@@ -35,8 +35,6 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GIPHY_API_KEY = os.getenv("GIPHY_API_KEY")
 
-print("NEO4J_PASSWORD",NEO4J_PASSWORD,'\n',"NEO4J_URI",NEO4J_URI,'\n',"NEO4J_USER",NEO4J_USER,'\n',"GOOGLE_API_KEY",GOOGLE_API_KEY,'\n',"GIPHY_API_KEY",GIPHY_API_KEY,'\n')
-
 if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, GOOGLE_API_KEY, GIPHY_API_KEY]):
     raise ValueError("One or more environment variables are not set. Check your .env file.")
 
@@ -124,7 +122,7 @@ app = FastAPI(title="Digital Companion AI - Agent Edition", lifespan=lifespan)
 # Safer CORS configuration for Python FastAPI
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://echoes-landing-1.onrender.com/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
