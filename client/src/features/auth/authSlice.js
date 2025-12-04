@@ -22,7 +22,7 @@ export const authSlice = createSlice({
     logOut: (state) => {
       state.username = null;
       state.token = null;
-      state.isAuthenticated = true;
+      state.isAuthenticated = false;
     },
   },
 });

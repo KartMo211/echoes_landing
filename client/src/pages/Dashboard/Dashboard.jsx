@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { logOut } from '../../features/auth/authSlice';
 import './Dashboard.css'; // Import the CSS
 
 import axios from 'axios';
@@ -29,6 +30,7 @@ apiClient.interceptors.request.use((config) => {
 
 function Dashboard() {
 
+  const dispatch = useDispatch();
   const { username } = useSelector((state) => state.auth);
 
   // --- State ---
@@ -321,6 +323,14 @@ function Dashboard() {
     }
   };
 
+  const handleLogout = () => {
+    dispatch(logOut());
+    localStorage.removeItem('echoes_user_id');
+    setUserId('');
+    // Optional: Reload to ensure clean state
+    // window.location.reload();
+  };
+
   const closeCreateModal = () => {
     setCreateModalOpen(false);
     setFormFeedback('');
@@ -444,9 +454,36 @@ function Dashboard() {
           </div>
           <div className="sidebar-footer" id="sidebar-footer">
             {userId && (
-              <div id="user-id-display" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', wordBreak: 'break-all', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                User ID: {userId}
-              </div>
+              <>
+                <div id="user-id-display" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', wordBreak: 'break-all', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                  User ID: {userId}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    marginTop: '0.5rem',
+                    background: 'transparent',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    width: '100%',
+                    fontSize: '0.8rem',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.borderColor = 'var(--accent-color)';
+                    e.target.style.color = 'var(--accent-color)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.borderColor = 'var(--border-color)';
+                    e.target.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  Logout
+                </button>
+              </>
             )}
           </div>
         </aside>
